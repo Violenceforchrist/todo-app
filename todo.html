@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>To-Do List</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 550px;
+      margin: 50px auto;
+      background: #f4f4f4;
+      padding: 20px;
+    }
+    h1 { text-align: center; color: #333; }
+    .input-area {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    input[type="date"] {
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover { background: #218838; }
+    .counter {
+      text-align: center;
+      color: #555;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      justify-content: center;
+    }
+    .filters button {
+      background: #6c757d;
+      padding: 6px 16px;
+      font-size: 13px;
+    }
+    .filters button.active { background: #007bff; }
+    .filters button:hover { background: #5a6268; }
+    .clear-btn {
+      display: block;
+      width: 100%;
+      background: #dc3545;
+      margin-bottom: 15px;
+      font-size: 14px;
+      padding: 8px;
+    }
+    .clear-btn:hover { background: #c82333; }
+    ul { list-style: none; padding: 0; }
+    li {
+      background: white;
+      padding: 10px 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    li.done .task-text {
+      text-decoration: line-through;
+      color: #aaa;
+    }
+    li.overdue { border-left: 4px solid #dc3545; }
+    .task-info { display: flex; flex-direction: column; flex: 1; }
+    .task-text { font-size: 15px; cursor: pointer; }
+    .due-date { font-size: 12px; color: #888; margin-top: 2px; }
+    .due-date.overdue { color: #dc3545; font-weight: bold; }
+    .btn-group { display: flex; gap: 6px; }
+    .delete-btn {
+      background: #dc3545;
+      padding: 5px 10px;
+      font-size: 13px;
+    }
+    .delete-btn:hover { background: #c82333; }
+    .edit-btn {
+      background: #ffc107;
+      padding: 5px 10px;
+      font-size: 13px;
+      color: #333;
+    }
+    .edit-btn:hover { background: #e0a800; }
+  </style>
+</head>
+<body>
+  <h1>My To-Do List</h1>
+
+  <div class="input-area">
+    <input type="text" id="taskInput" placeholder="Enter a task..." />
+    <input type="date" id="dateInput" />
+    <button onclick="addTask()">Add</button>
+  </div>
+
+  <p class="counter" id="counter">0 tasks left</p>
+
+  <div class="filters">
+    <button class="active" onclick="filterTasks('all', this)">All</button>
+    <button onclick="filterTasks('active', this)">Active</button>
+    <button onclick="filterTasks('completed', this)">Completed</button>
+  </div>
+
+  <button class="clear-btn" onclick="clearAll()">Clear All Tasks</button>
+
+  <ul id="taskList"></ul>
+
+  <script>
+    let currentFilter = 'all';
+
+    function loadTasks() {
+      const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+      tasks.forEach(task => renderTask(task.text, task.done, task.date));
+      updateCounter();
+    }
+
+    function saveTasks() {
+      const items = document.querySelectorAll('#taskList li');
+      const tasks = [];
+      items.forEach(item => {
+        tasks.push({
+          text: item.querySelector('.task-text').textContent,
+          done: item.classList.contains('done'),
+          date: item.querySelector('.due-date') ? item.querySelector('.due-date').dataset.date : ''
+        });
+      });
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      updateCounter();
+    }
+
+    function renderTask(text, done = false, date = '') {
+      const li = document.createElement('li');
+      if (done) li.classList.add('done');
+
+      const today = new Date().toISOString().split('T')[0];
+      const isOverdue = date && date < today && !done;
+      if (isOverdue) li.classList.add('overdue');
+
+      const dateHTML = date
+        ? `<span class="due-date ${isOverdue ? 'overdue' : ''}" data-date="${date}">
+            Due: ${date} ${isOverdue ? '⚠ Overdue' : ''}
+           </span>`
+        : `<span class="due-date" data-date=""></span>`;
+
+      li.innerHTML = `
+        <div class="task-info">
+          <span class="task-text" onclick="toggleDone(this)">${text}</span>
+          ${dateHTML}
+        </div>
+        <div class="btn-group">
+          <button class="edit-btn" onclick="editTask(this)">Edit</button>
+          <button class="delete-btn" onclick="deleteTask(this)">Delete</button>
+        </div>
+      `;
+
+      document.getElementById('taskList').appendChild(li);
+      applyFilter(currentFilter);
+    }
+
+    function addTask() {
+      const input = document.getElementById('taskInput');
+      const dateInput = document.getElementById('dateInput');
+      const taskText = input.value.trim();
+      if (taskText === '') { alert('Please enter a task!'); return; }
+      renderTask(taskText, false, dateInput.value);
+      input.value = '';
+      dateInput.value = '';
+      saveTasks();
+    }
+
+    function toggleDone(span) {
+      span.parentElement.parentElement.classList.toggle('done');
+      saveTasks();
+      applyFilter(currentFilter);
+    }
+
+    function deleteTask(btn) {
+      btn.parentElement.parentElement.remove();
+      saveTasks();
+    }
+
+    function editTask(btn) {
+      const li = btn.parentElement.parentElement;
+      const taskSpan = li.querySelector('.task-text');
+      const newText = prompt('Edit your task:', taskSpan.textContent);
+      if (newText !== null && newText.trim() !== '') {
+        taskSpan.textContent = newText.trim();
+        saveTasks();
+      }
+    }
+
+    function clearAll() {
+      if (confirm('Are you sure you want to delete all tasks?')) {
+        document.getElementById('taskList').innerHTML = '';
+        localStorage.removeItem('tasks');
+        updateCounter();
+      }
+    }
+
+    function updateCounter() {
+      const items = document.querySelectorAll('#taskList li');
+      const remaining = Array.from(items).filter(i => !i.classList.contains('done')).length;
+      document.getElementById('counter').textContent = `${remaining} task${remaining !== 1 ? 's' : ''} left`;
+    }
+
+    function filterTasks(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyFilter(filter);
+    }
+
+    function applyFilter(filter) {
+      const items = document.querySelectorAll('#taskList li');
+      items.forEach(item => {
+        const isDone = item.classList.contains('done');
+        if (filter === 'all') item.style.display = '';
+        else if (filter === 'active') item.style.display = isDone ? 'none' : '';
+        else if (filter === 'completed') item.style.display = isDone ? '' : 'none';
+      });
+    }
+
+    document.getElementById('taskInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') addTask();
+    });
+
+    loadTasks();
+  </script>
+</body>
+</html>
